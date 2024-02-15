@@ -11,10 +11,14 @@ jobs:
                 shared: [False, True]
                 build_type: [Release, Debug]
         container:
-            image: conanio/gcc11-ubuntu16.04:latest
+            image: conanio/gcc10:latest
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
+            -   name: Update Conan client
+                run: |
+                    pip install --upgrade conan
+                    conan profile detect
             -   name: Install Conan Dependencies
                 run: |
                     conan install -r conancenter \
