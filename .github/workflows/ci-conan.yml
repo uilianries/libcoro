@@ -1,0 +1,46 @@
+name: ci-ubuntu
+
+on: [pull_request, workflow_dispatch]
+
+jobs:
+    ci-conan-gcc10:
+        name: ci-ubuntu-20.04-g++-11-shared-${{ matrix.shared }}-build-type-${{ matrix.build_type }}
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                shared: [False, True]
+                build_type: [Release, Debug]
+        container:
+            image: conanio/gcc11-ubuntu16.04:latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+            -   name: Install Conan Dependencies
+                run: |
+                    conan install -r conancenter \
+                        --requires=openssl/3.2.0 \
+                        --requires=c-ares/1.22.1 \
+                        --requires=tl-expected/1.1.0 \
+                        -g CMakeToolchain \
+                        -g CMakeDeps \
+                        -g VirtualBuildEnv \
+                        -of build/conan \
+                        --build=missing \
+                        -s build_type=${{ matrix.build_type }} \
+                        -s compiler.cppstd=20 \
+                        -o "*/*:shared=${{ matrix.shared }}"
+            -   name: Build
+                run: |
+                    cmake -S . -B build
+                        -DCMAKE_TOOLCHAIN_FILE=build/conan/conan_toolchain.cmake
+                        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+                        -DLIBCORO_EXTERNAL_DEPENDENCIES=ON \
+                        -DLIBCORO_FEATURE_NETWORKING=ON \
+                        -DLIBCORO_FEATURE_TLS=ON \
+                        -DLIBCORO_BUILD_SHARED_LIBS=${{ matrix.shared }} \
+                        ..
+                    cmake --build build
+            -   name: Test
+                run: |
+                    cd build
+                    ctest -VVqw
